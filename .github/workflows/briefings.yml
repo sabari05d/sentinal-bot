@@ -1,0 +1,66 @@
+name: Sentinel Automated Briefings
+
+on:
+  schedule:
+    # 09:00 IST = 03:30 UTC
+    - cron: '30 3 * * 1-5'   # Morning briefing — Mon–Fri
+    # 16:00 IST = 10:30 UTC
+    - cron: '30 10 * * 1-5'  # Evening briefing — Mon–Fri
+
+  # Allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      briefing_type:
+        description: 'Briefing type'
+        required: true
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - evening
+
+jobs:
+  send-briefing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Determine briefing type from schedule
+        id: briefing-type
+        run: |
+          # If manually triggered, use the input value
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.briefing_type }}" >> $GITHUB_OUTPUT
+          else
+            # Determine from UTC hour: 03:xx UTC → morning, 10:xx UTC → evening
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" = "03" ]; then
+              echo "type=morning" >> $GITHUB_OUTPUT
+            else
+              echo "type=evening" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Send ${{ steps.briefing-type.outputs.type }} briefing
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cd backend
+          python main.py --briefing ${{ steps.briefing-type.outputs.type }}
