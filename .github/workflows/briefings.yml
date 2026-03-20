@@ -21,11 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # ── Set working directory for ALL steps to backend/ ───────────────────────
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -35,15 +30,15 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-          # Tell pip-cache exactly where requirements.txt lives
+          # Path relative to the root of the repo
           cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
+        working-directory: backend
         run: pip install -r requirements.txt
 
       - name: Determine briefing type
         id: briefing-type
-        # This step has no working-directory dependency — shell is fine
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -58,7 +53,7 @@ jobs:
           fi
 
       - name: Run Sentinel Briefing
-        # Runs as:  cd backend && python main.py --briefing morning
+        working-directory: backend
         env:
           SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:        ${{ secrets.SUPABASE_KEY }}
