@@ -25,7 +25,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive  # This tells GitHub to actually download the 'backend' folder
           fetch-depth: 0
 
       - name: Set up Python 3.11
