@@ -22,8 +22,49 @@ function cleanSymbol(s) {
     return s.trim().toUpperCase().replace(/\.NS$/i, '').replace(/\.BO$/i, '');
 }
 
+// Helper to check if NSE is open
+const isMarketOpen = () => {
+    const now = new Date();
+    // Convert current time to India Standard Time (IST)
+    const indiaTime = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kolkata',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        weekday: 'long',
+        hour12: false
+    }).formatToParts(now);
+
+    const getPart = (type) => indiaTime.find(p => p.type === type).value;
+
+    const day = getPart('weekday');
+    const hour = parseInt(getPart('hour'));
+    const minute = parseInt(getPart('minute'));
+
+    // Weekend Check
+    if (day === 'Saturday' || day === 'Sunday') return false;
+
+    // Time Check (09:15 to 15:30)
+    const timeInMinutes = hour * 60 + minute;
+    const openTime = 9 * 60 + 15;
+    const closeTime = 15 * 60 + 30;
+
+    return timeInMinutes >= openTime && timeInMinutes <= closeTime;
+};
+
 // ── Sentiment Ticker ──────────────────────────────────────────────────────────
 function SentimentTicker({ briefing, loading }) {
+
+    const [marketLive, setMarketLive] = useState(isMarketOpen());
+
+    // Update status every minute
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setMarketLive(isMarketOpen());
+        }, 60000);
+        return () => clearInterval(timer);
+    }, []);
+
     if (loading) {
         return (
             <div className="border-b border-zinc-800 bg-zinc-950 px-4 py-2 overflow-hidden">
@@ -72,10 +113,12 @@ function SentimentTicker({ briefing, loading }) {
                         {tickerContent}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tickerContent}
                     </div>
                 </div>
-                {/* Live indicator */}
+                {/* DYNAMIC Live indicator */}
                 <div className="shrink-0 px-3 flex items-center gap-1.5 border-l border-zinc-800">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] font-mono text-zinc-500">LIVE</span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${marketLive ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
+                    <span className={`text-[10px] font-mono ${marketLive ? 'text-zinc-500' : 'text-red-900'}`}>
+                        {marketLive ? 'LIVE' : 'CLOSED'}
+                    </span>
                 </div>
             </div>
         </div>
